@@ -1,0 +1,67 @@
+<!doctype html>
+<!--
+    Made with love by MindfulMinun
+    https://benjic.xyz
+-->
+<html class="no-js">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <title>Sakura</title>
+        <meta name="viewport" content="width=device-width, user-scalable=0">
+        <meta name="theme-color" content="#F1278C">
+        <link rel="icon" href="/static/icons/sakura-72.png" type="image/png">
+        <link rel="apple-touch-icon" href="/static/icons/sakura-maskable-192.png">
+        <link rel="manifest" href="/manifest.webmanifest">
+        <style media="screen">
+            *, *::before, *::after {
+                box-sizing: border-box;
+            }
+            .no-js .no-js-hide {
+                display: none;
+            }
+        </style>
+        <link rel="stylesheet" href="/static/styles/main.css">
+        <script>document.documentElement.classList.remove('no-js')</script>
+        <script src="/static/scripts/app.js" type="module"></script>
+    </head>
+    <body>
+        <div id="app">
+            <noscript class="welcome">
+                <div class="welcome--blossom">
+                    <div class="welcome--blossom--box">
+                        <img class="affix" src="/static/icons/sakura.svg" alt="" title="Sakura">
+                    </div>
+                </div>
+                <div class="welcome--text">
+                    <h1>Sakura</h1>
+                    <p class="welcome--subtitle">Pink manga aesthetic</p>
+                    <p>Please come back on a supporting browser.</p>
+                    <p><em>I love you, please don’t ever forget that.</em></p>
+                </div>
+            </noscript>
+        </div>
+
+        <!-- Templates -->
+        <template id="template__welcome">
+            <div class="welcome">
+                <div class="welcome--blossom">
+                    <div class="welcome--blossom--box">
+                        <img class="affix" src="/static/icons/sakura.svg" alt="" title="Sakura" draggable="false">
+                    </div>
+                </div>
+                <div class="welcome--text">
+                    <h1>Sakura</h1>
+                    <p class="welcome--subtitle">Pink manga aesthetic</p>
+                    <p class="no-js-hide">Drag and drop an image anywhere or <button class="link-btn">choose one from your device</button></p>
+                </div>
+            </div>
+        </template>
+        <template id="template__editor">
+            <div class="editor">
+                <div class="cbox affix"></div>
+            </div>
+        </template>
+        <input type="file" id="input-file" hidden>
+    </body>
+</html>
