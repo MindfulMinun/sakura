@@ -45,21 +45,29 @@
         <!-- Templates -->
         <template id="template__welcome">
             <div class="welcome">
-                <div class="welcome--blossom">
-                    <div class="welcome--blossom--box">
-                        <img class="affix" src="/static/icons/sakura.svg" alt="" title="Sakura" draggable="false">
-                    </div>
-                </div>
                 <div class="welcome--text">
                     <h1>Sakura</h1>
                     <p class="welcome--subtitle">Pink manga aesthetic</p>
                     <p class="no-js-hide">Drag and drop an image anywhere or <button class="link-btn">choose one from your device</button></p>
                 </div>
+                <button class="welcome--blossom" title="Add an image">
+                    <div class="welcome--blossom--box">
+                        <img class="affix" src="/static/icons/sakura.svg" alt="" title="Sakura" draggable="false">
+                    </div>
+                </button>
             </div>
         </template>
         <template id="template__editor">
             <div class="editor">
                 <div class="cbox affix"></div>
+                <div class="drawer">
+                    <div class="controls">
+                        <input type="color" value="#F1278C">
+                        <input type="color" value="#FCD0E5">
+                        <div class="flex-grow"></div>
+                        <button>Download image</button>
+                    </div>
+                </div>
             </div>
         </template>
         <input type="file" id="input-file" hidden>

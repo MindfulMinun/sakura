@@ -1,6 +1,7 @@
 const Sakura = {
     /** @param {File[]} files */
     fileDrop(files) {
+        if (Sakura.image.src !== '') return
         const file = files.find(file => file.type.startsWith('image/'))
         if (!file) {
             return alert("Be sure to drop a file your browser supports :)")
@@ -10,12 +11,21 @@ const Sakura = {
         // this.loadView('loading')
 
         this.image.onload = () => {
-            
-            this.ctx.canvas.height = this.image.naturalHeight
-            this.ctx.canvas.width = this.image.naturalWidth
-            this.ctx.drawImage(this.image, 0, 0)
-
+            this.mirror.height = this.image.naturalHeight
+            this.mirror.width = this.image.naturalWidth
+            this.worker.postMessage({
+                "<3": "Alone together",
+                file
+            })
+            URL.revokeObjectURL(this.image.src)
+            this.image.title = file.name
             this.loadView('editor')
+        }
+        this.image.onerror = () => {
+            alert("Sorry, but this image is in a format I can't understand.")
+            this.image.onload = () => {}
+            this.image.onerror = () => {}
+            this.image.src = ''
         }
     },
 
@@ -38,7 +48,9 @@ const Sakura = {
     /** @ts-ignore @type {HTMLInputElement} */
     fileElement: document.getElementById('input-file'),
 
-    ctx: document.createElement('canvas').getContext('2d'),
+    // ctx: document.createElement('canvas').getContext('2d'),
+    mirror: document.createElement('canvas'),
+    worker: new Worker('/static/scripts/worker.js', { type: "module" }),
     image: new Image(),
 
     /**
@@ -59,7 +71,7 @@ const Sakura = {
         }
     }
 }
-// @ts-ignore
+// @ts-expect-error
 globalThis['Sakura'] = Sakura
 
 // Handle file selects
@@ -78,20 +90,43 @@ window.addEventListener('drop', async ev => {
 // Prevent the browser from replacing the document when a file's dropped over it
 document.addEventListener('dragover', ev => ev.preventDefault())
 
+// Worker callbacks
+Sakura.worker.addEventListener('message', ev => {
+    switch (ev.data['<3']) {
+        case "I wish I could make you mine":
+            const { title, url } = ev.data
+            const anchor = document.createElement('a')
+            anchor.setAttribute('href', url)
+            anchor.setAttribute('download', title)
+            document.body.append(anchor)
+            anchor.click()
+            document.body.removeChild(anchor)
+            break
+    }
+})
+
 // Register load callbacks
 Sakura.onload('welcome', app => {
-    app.view.querySelector('.link-btn')
-        .addEventListener('click', () => app.fileElement.click())
+    Array.from(app.view.querySelectorAll('button'))
+        .forEach(
+            el => el.addEventListener('click', () => app.fileElement.click())
+        )
 })
 
 Sakura.onload('editor', app => {
-    app.ctx.canvas.width
     /** @ts-ignore @type {HTMLDivElement} */
     const canvasBox = app.view.querySelector('.cbox')
-    canvasBox.appendChild(app.ctx.canvas)
+    canvasBox.appendChild(app.mirror)
     const rect = canvasBox.getBoundingClientRect()
-    const initialX = rect.width / 2 - app.ctx.canvas.width / 2
-    const initialY = rect.height / 2 - app.ctx.canvas.height / 2
+    const initialX = rect.width / 2 - app.image.naturalWidth / 2
+    const initialY = rect.height / 2 - app.image.naturalHeight / 2
+
+    const canvas = app.mirror.transferControlToOffscreen()
+    app.worker.postMessage({
+        '<3': "Sail across the oceans just to find a way to get closer to you",
+        canvas
+    }, [canvas])
+
 
     canvasBox.style.setProperty('--x', `${initialX}px`)
     canvasBox.style.setProperty('--y', `${initialY}px`)
@@ -101,7 +136,50 @@ Sakura.onload('editor', app => {
         rect,
         image: app.image
     })
+
+    /** @ts-ignore @type {HTMLInputElement[]} */
+    const [dark, light] = app.view.querySelectorAll('input[type=color]')
+
+    // Add event listeners
+    ;[dark, light].forEach(el => {
+        el.addEventListener('change', () => {
+            app.worker.postMessage({
+                '<3': "I miss you, I need you, I love you.",
+                'colors': [parseInt(dark.value.slice(1), 16), parseInt(light.value.slice(1), 16)]
+            })
+        })
+    })
+
+    const downloadBtn = app.view.querySelector('button')
+    downloadBtn.addEventListener('click', () => {
+        app.worker.postMessage({
+            '<3': "Why don't we fall in love?"
+        })
+    })
+
+    if (navigator.share) {
+        const shareBtn = document.createElement('button')
+        shareBtn.textContent = 'Share'
+        
+        shareBtn.addEventListener('click', () => {
+            Sakura.mirror.toBlob(blob => {
+                const file = new File([blob], Sakura.image.title)
+                console.log(file)
+                navigator.share({
+                    // @ts-expect-error -- VS doesn't know about the new Files parameter
+                    files: [file],
+                    text: '🌸'
+                }).catch(reason => {
+                    console.log(reason)
+                    alert("Dang, your device didn't let me do that.")
+                })
+            })
+        })
+
+        downloadBtn.parentElement.append(shareBtn)
+    }
 })
+
 
 /**
  * Adds a bunch of event listeners that are responsible for ~glitchy~ touch interactions
@@ -109,7 +187,7 @@ Sakura.onload('editor', app => {
  */
 function touchManip({canvasBox, rect, image}) {
     const SCROLL_SCALE = 480
-    const PINCH_SCALE = 300
+    const PINCH_SCALE = 600
     const PADDING_BOX = 64
 
     // Movement event listeners
@@ -146,30 +224,31 @@ function touchManip({canvasBox, rect, image}) {
     canvasBox.addEventListener('wheel', ev => pointer.aggregateScroll -= ev.deltaY / SCROLL_SCALE, { passive: true })
     canvasBox.addEventListener('mousemove', pointer.onPointerMove)
     canvasBox.addEventListener('touchmove', ev => {
-        if (ev.targetTouches.length === 1) {
+        const left = ev.targetTouches[0]
+        const right = ev.targetTouches[1]
+        if (!right) {
             pointer.multitouch = false
             pointer.onPointerMove({
-                x: ev.targetTouches[0].clientX,
-                y: ev.targetTouches[0].clientY
+                x: left.clientX,
+                y: left.clientY
             })
         } else {
-            const [left, right] = ev.targetTouches
-            const midpoint = {
-                x: (left.clientX + right.clientX) / 2,
-                y: (left.clientY + right.clientY) / 2
-            }
+            const left = ev.targetTouches[0]
+            const right = ev.targetTouches[1]
+            const x = (left.clientX + right.clientX) / 2
+            const y = (left.clientY + right.clientY) / 2
             const size = Math.hypot(right.clientX - left.clientX, right.clientY - left.clientY)
             // Ignore this touch since it's like start of the second touch 
             if (!pointer.multitouch) {
-                pointer.lastX = midpoint.x
-                pointer.lastY = midpoint.y
+                pointer.lastX = x
+                pointer.lastY = y
                 pointer.lastSize = size
                 pointer.multitouch = true
             }
             // Scale by the position
             pointer.aggregateScroll += (size - pointer.lastSize) / PINCH_SCALE
             pointer.lastSize = size
-            pointer.onPointerMove(midpoint)
+            pointer.onPointerMove({x, y})
         }
     }, { passive: true })
 
@@ -185,20 +264,28 @@ function touchManip({canvasBox, rect, image}) {
     canvasBox.addEventListener('mouseup', () => pointer.isPanning = false)
     canvasBox.addEventListener('mouseleave', () => pointer.isPanning = false)
 
-    requestAnimationFrame(function _rAF() {
-        if (!canvasBox.isConnected) return
-        requestAnimationFrame(_rAF)
+    // IDK why this is janky
+    // I've run the profiler in Chrome several times, it looks like this callback's hitting 60fps
+    // but Chrome refuses to paint no more than about 5fps on my Pixel. Please uncomment the lines and try this for yourself
+
+    // let prev = performance.now()
+    function update() {
+        // if (prev) console.log(1000 / (performance.now() - prev))
+        // prev = performance.now()
         const computed = getComputedStyle(canvasBox)
 
         // Scroll
-        const parsedScale = parseFloat(computed.getPropertyValue('--scale') || '0')
+        const parsedScale = +computed.getPropertyValue('--scale')
+        // const parsedScale = +(canvasBox.dataset.scale || '')
         // .1 <= scale <= 20
         const scale = Math.max(.1, Math.min(20, parsedScale + pointer.aggregateScroll))
         canvasBox.style.setProperty('--scale', '' + scale)
         
         // Position
-        const parsedX = parseFloat(computed.getPropertyValue('--x') || '0px')
-        const parsedY = parseFloat(computed.getPropertyValue('--y') || '0px')
+        // const parsedX = +(canvasBox.dataset.x || '')
+        // const parsedY = +(canvasBox.dataset.y || '')
+        const parsedX = +computed.getPropertyValue('--x').slice(0, -2)
+        const parsedY = +computed.getPropertyValue('--y').slice(0, -2)
         
         const x = Math.max(
             -image.width + PADDING_BOX,
@@ -211,11 +298,19 @@ function touchManip({canvasBox, rect, image}) {
 
         canvasBox.style.setProperty('--x', `${x}px`)
         canvasBox.style.setProperty('--y', `${y}px`)
+        // canvasBox.setAttribute('style', `transform: translate(${x}px, ${y}px) scale(${scale})`)
+        // canvasBox.dataset.x = '' + x
+        // canvasBox.dataset.y = '' + y
+        // canvasBox.dataset.scale = '' + scale
 
         pointer.aggregateX = 0
         pointer.aggregateY = 0
         pointer.aggregateScroll = 0
-    })
+
+        requestAnimationFrame(update)
+    }
+    requestAnimationFrame(update)
 }
 
+// Load the initial view
 Sakura.loadView('welcome')

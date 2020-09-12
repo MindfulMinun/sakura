@@ -37,6 +37,9 @@ body {
 canvas {
     display: block;
 }
+button {
+    cursor: pointer;
+}
 
 .container {
     padding: 1em;
@@ -78,6 +81,8 @@ canvas {
 
 .welcome {
     margin: auto;
+    display: flex;
+    flex-direction: column-reverse;
     width: 400px;
     max-width: 100%;
     text-align: center;
@@ -85,7 +90,11 @@ canvas {
 }
 .welcome--blossom {
     width: 50%;
+    display: block;
     margin: 0 auto;
+    border: 0;
+    background: 0;
+    padding: 0;
 }
 .welcome--blossom--box {
     position: relative;
@@ -98,19 +107,36 @@ canvas {
 /* Editor styles */
 
 .editor {
-    margin: auto;
     animation: 250ms var(--anim-std) fade-in;
 }
 .cbox {
-    /* background-color: #1e1e1e; */
     position: fixed;
     overflow: visible;
-    --x: 0;
-    --y: 0;
+    --x: 0px;
+    --y: 0px;
     --scale: 1;
 }
 .cbox > canvas {
     transform: translate(var(--x), var(--y)) scale(var(--scale));
+    /* background-color: var(--pink-hard); */
+}
+
+.drawer {
+    position: absolute;
+    flex-direction: row;
+    bottom: 0;
+    left: 0; right: 0;
+    padding: 1em;
+    background-color: #1e1e1e1e;
+    backdrop-filter: blur(4px);
+}
+.flex-grow { flex: 1; }
+.controls {
+    display: flex;
+    gap: 1em;
+}
+.controls > input {
+    display: block;
 }
 
 @keyframes welcome-fade-in {
