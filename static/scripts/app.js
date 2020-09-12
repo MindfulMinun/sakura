@@ -118,8 +118,15 @@ Sakura.onload('editor', app => {
     const canvasBox = app.view.querySelector('.cbox')
     canvasBox.appendChild(app.mirror)
     const rect = canvasBox.getBoundingClientRect()
-    const initialX = rect.width / 2 - app.image.naturalWidth / 2
-    const initialY = rect.height / 2 - app.image.naturalHeight / 2
+
+    // Scale so the whole image can be seen at the start
+    const initialScale = Math.min(
+        window.innerWidth / app.image.naturalWidth,
+        window.innerHeight / app.image.naturalHeight,
+        1
+    )
+    const initialX = (rect.width / 2) - (app.image.naturalWidth * initialScale / 2)
+    const initialY = (rect.height / 2) - (app.image.naturalHeight * initialScale / 2)
 
     const canvas = app.mirror.transferControlToOffscreen()
     app.worker.postMessage({
@@ -130,6 +137,7 @@ Sakura.onload('editor', app => {
 
     canvasBox.style.setProperty('--x', `${initialX}px`)
     canvasBox.style.setProperty('--y', `${initialY}px`)
+    canvasBox.style.setProperty('--scale', `${initialScale}`)
 
     touchManip({
         canvasBox, 
@@ -163,15 +171,16 @@ Sakura.onload('editor', app => {
         
         shareBtn.addEventListener('click', () => {
             Sakura.mirror.toBlob(blob => {
-                const file = new File([blob], Sakura.image.title)
+                const file = new File([blob], Sakura.image.title, { type: blob.type })
                 console.log(file)
                 navigator.share({
                     // @ts-expect-error -- VS doesn't know about the new Files parameter
                     files: [file],
                     text: '🌸'
                 }).catch(reason => {
-                    console.log(reason)
-                    alert("Dang, your device didn't let me do that.")
+                    if (("" + reason).endsWith('Share canceled')) return
+
+                    alert("Oops, your device didn't let me do that.")
                 })
             })
         })
@@ -187,7 +196,7 @@ Sakura.onload('editor', app => {
  */
 function touchManip({canvasBox, rect, image}) {
     const SCROLL_SCALE = 480
-    const PINCH_SCALE = 600
+    const PINCH_SCALE = 500
     const PADDING_BOX = 64
 
     // Movement event listeners
@@ -222,7 +231,7 @@ function touchManip({canvasBox, rect, image}) {
     }
 
     canvasBox.addEventListener('wheel', ev => pointer.aggregateScroll -= ev.deltaY / SCROLL_SCALE, { passive: true })
-    canvasBox.addEventListener('mousemove', pointer.onPointerMove)
+    canvasBox.addEventListener('mousemove', pointer.onPointerMove, { passive: true })
     canvasBox.addEventListener('touchmove', ev => {
         const left = ev.targetTouches[0]
         const right = ev.targetTouches[1]
@@ -252,7 +261,7 @@ function touchManip({canvasBox, rect, image}) {
         }
     }, { passive: true })
 
-    canvasBox.addEventListener('mousedown', pointer.onPointerDown)
+    canvasBox.addEventListener('mousedown', pointer.onPointerDown, { passive: true })
     canvasBox.addEventListener('touchstart', ev => pointer.onPointerDown({
         x: ev.targetTouches[0].clientX,
         y: ev.targetTouches[0].clientY
@@ -260,49 +269,36 @@ function touchManip({canvasBox, rect, image}) {
     canvasBox.addEventListener('touchend', () => {
         pointer.isPanning = false
         pointer.multitouch = true
-    })
-    canvasBox.addEventListener('mouseup', () => pointer.isPanning = false)
-    canvasBox.addEventListener('mouseleave', () => pointer.isPanning = false)
+    }, { passive: true })
+    canvasBox.addEventListener('mouseup', () => pointer.isPanning = false, { passive: true })
+    canvasBox.addEventListener('mouseleave', () => pointer.isPanning = false, { passive: true })
 
-    // IDK why this is janky
-    // I've run the profiler in Chrome several times, it looks like this callback's hitting 60fps
-    // but Chrome refuses to paint no more than about 5fps on my Pixel. Please uncomment the lines and try this for yourself
-
-    // let prev = performance.now()
     function update() {
-        // if (prev) console.log(1000 / (performance.now() - prev))
-        // prev = performance.now()
         const computed = getComputedStyle(canvasBox)
 
         // Scroll
-        const parsedScale = +computed.getPropertyValue('--scale')
+        const prevScale = +computed.getPropertyValue('--scale')
         // const parsedScale = +(canvasBox.dataset.scale || '')
         // .1 <= scale <= 20
-        const scale = Math.max(.1, Math.min(20, parsedScale + pointer.aggregateScroll))
-        canvasBox.style.setProperty('--scale', '' + scale)
+        const scale = Math.max(.1, Math.min(20, prevScale + pointer.aggregateScroll))
         
         // Position
-        // const parsedX = +(canvasBox.dataset.x || '')
-        // const parsedY = +(canvasBox.dataset.y || '')
-        const parsedX = +computed.getPropertyValue('--x').slice(0, -2)
-        const parsedY = +computed.getPropertyValue('--y').slice(0, -2)
+        const prevX = +computed.getPropertyValue('--x').slice(0, -2)
+        const prevY = +computed.getPropertyValue('--y').slice(0, -2)
         
         const x = Math.max(
             -image.width + PADDING_BOX,
-            Math.min(rect.width - PADDING_BOX, parsedX + pointer.aggregateX)
+            Math.min(rect.width - PADDING_BOX, prevX + pointer.aggregateX)
         )
         const y = Math.max(
             -image.height + PADDING_BOX,
-            Math.min(rect.height - PADDING_BOX, parsedY + pointer.aggregateY)
+            Math.min(rect.height - PADDING_BOX, prevY + pointer.aggregateY)
         )
 
         canvasBox.style.setProperty('--x', `${x}px`)
         canvasBox.style.setProperty('--y', `${y}px`)
-        // canvasBox.setAttribute('style', `transform: translate(${x}px, ${y}px) scale(${scale})`)
-        // canvasBox.dataset.x = '' + x
-        // canvasBox.dataset.y = '' + y
-        // canvasBox.dataset.scale = '' + scale
-
+        canvasBox.style.setProperty('--scale', `${scale}`)
+    
         pointer.aggregateX = 0
         pointer.aggregateY = 0
         pointer.aggregateScroll = 0

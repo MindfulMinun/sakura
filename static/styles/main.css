@@ -111,14 +111,16 @@ button {
 }
 .cbox {
     position: fixed;
-    overflow: visible;
+    overflow: hidden;
     --x: 0px;
     --y: 0px;
     --scale: 1;
+    touch-action: none;
 }
 .cbox > canvas {
     transform: translate(var(--x), var(--y)) scale(var(--scale));
-    /* background-color: var(--pink-hard); */
+    transform-origin: 0 0;
+    will-change: transform;
 }
 
 .drawer {
