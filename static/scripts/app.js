@@ -45,6 +45,8 @@ const Sakura = {
 
     view: document.getElementById('app'),
 
+    transform: new DOMMatrix(),
+
     /** @ts-ignore @type {HTMLInputElement} */
     fileElement: document.getElementById('input-file'),
 
@@ -127,6 +129,10 @@ Sakura.onload('editor', app => {
     )
     const initialX = (rect.width / 2) - (app.image.naturalWidth * initialScale / 2)
     const initialY = (rect.height / 2) - (app.image.naturalHeight * initialScale / 2)
+
+    Sakura.transform.e = initialX
+    Sakura.transform.f = initialY
+    Sakura.transform.d = Sakura.transform.a = initialScale
 
     const canvas = app.mirror.transferControlToOffscreen()
     app.worker.postMessage({
@@ -212,15 +218,15 @@ function touchManip({canvasBox, rect, image}) {
         lastSize: 0,
         aggregateX: 0,
         aggregateY: 0,
-        aggregateScroll: 0,
+        aggregateZoom: 0,
         /** @param {{x: number, y: number}} a */
         onPointerMove: ({x, y}) => {
             if (pointer.isPanning) {
                 pointer.aggregateX += (x - pointer.lastX)
                 pointer.aggregateY += (y - pointer.lastY)
-                pointer.lastX = x
-                pointer.lastY = y
             }
+            pointer.lastX = x
+            pointer.lastY = y
         },
         /** @param {{x: number, y: number}} a */
         onPointerDown: ({x, y}) => {
@@ -230,7 +236,9 @@ function touchManip({canvasBox, rect, image}) {
         },
     }
 
-    canvasBox.addEventListener('wheel', ev => pointer.aggregateScroll -= ev.deltaY / SCROLL_SCALE, { passive: true })
+    Sakura.pointer = pointer
+
+    canvasBox.addEventListener('wheel', ev => pointer.aggregateZoom -= ev.deltaY / SCROLL_SCALE, { passive: true })
     canvasBox.addEventListener('mousemove', pointer.onPointerMove, { passive: true })
     canvasBox.addEventListener('touchmove', ev => {
         const left = ev.targetTouches[0]
@@ -255,7 +263,7 @@ function touchManip({canvasBox, rect, image}) {
                 pointer.multitouch = true
             }
             // Scale by the position
-            pointer.aggregateScroll += (size - pointer.lastSize) / PINCH_SCALE
+            pointer.aggregateZoom += (size - pointer.lastSize) / PINCH_SCALE
             pointer.lastSize = size
             pointer.onPointerMove({x, y})
         }
@@ -276,32 +284,58 @@ function touchManip({canvasBox, rect, image}) {
     function update() {
         const computed = getComputedStyle(canvasBox)
 
-        // Scroll
+        // Scaling
         const prevScale = +computed.getPropertyValue('--scale')
-        // const parsedScale = +(canvasBox.dataset.scale || '')
-        // .1 <= scale <= 20
-        const scale = Math.max(.1, Math.min(20, prevScale + pointer.aggregateScroll))
+        const scale = prevScale + pointer.aggregateZoom
         
-        // Position
-        const prevX = +computed.getPropertyValue('--x').slice(0, -2)
-        const prevY = +computed.getPropertyValue('--y').slice(0, -2)
+        // // Position
+        // const prevX = +computed.getPropertyValue('--x').slice(0, -2)
+        // const prevY = +computed.getPropertyValue('--y').slice(0, -2)
         
-        const x = Math.max(
+        // const x = Math.max(
+        //     -image.width + PADDING_BOX,
+        //     Math.min(rect.width - PADDING_BOX, Sakura.transform.e)
+        // )
+        // const y = Math.max(
+        //     -image.height + PADDING_BOX,
+        //     Math.min(rect.height - PADDING_BOX, prevY + pointer.aggregateY)
+        // )
+
+        // Read from bottom to top, that's how transformations are applied
+        Sakura.transform
+            // Do translate
+            .translateSelf(pointer.aggregateX / scale, pointer.aggregateY / scale)
+            // Undo the translate so that the origin is back at the fixed point
+            // .scaleSel
+            .translateSelf(pointer.lastX / scale, pointer.lastY / scale)
+            // Scale the matrix
+            .scaleSelf(scale / prevScale)
+            // Translate the matrix so that the fixed point is at the origin
+            .translateSelf(-pointer.lastX / prevScale, -pointer.lastY / prevScale)
+            // Apply previous transformations
+            // .scaleSelf(prevScale)
+
+
+        // Sakura.transform
+        // .scale(1 / prevScale)
+        
+        Sakura.transform.d = Sakura.transform.a = Math.max(.1, Math.min(20, Sakura.transform.a))
+        Sakura.transform.e = Math.max(
             -image.width + PADDING_BOX,
-            Math.min(rect.width - PADDING_BOX, prevX + pointer.aggregateX)
+            Math.min(rect.width - PADDING_BOX, Sakura.transform.e)
         )
-        const y = Math.max(
+        Sakura.transform.f = Math.max(
             -image.height + PADDING_BOX,
-            Math.min(rect.height - PADDING_BOX, prevY + pointer.aggregateY)
+            Math.min(rect.height - PADDING_BOX, Sakura.transform.f)
         )
 
-        canvasBox.style.setProperty('--x', `${x}px`)
-        canvasBox.style.setProperty('--y', `${y}px`)
-        canvasBox.style.setProperty('--scale', `${scale}`)
+        canvasBox.style.setProperty('--x', `${Sakura.transform.e}px`)
+        canvasBox.style.setProperty('--y', `${Sakura.transform.f}px`)
+        canvasBox.style.setProperty('--scale', `${Sakura.transform.a}`)
     
         pointer.aggregateX = 0
         pointer.aggregateY = 0
-        pointer.aggregateScroll = 0
+        pointer.aggregateZoom = 0
 
         requestAnimationFrame(update)
     }
